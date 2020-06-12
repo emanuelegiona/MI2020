@@ -12,9 +12,9 @@ class Video:
         self.open = True
         self.device_index = 0
         self.fps = 6  # fps should be the minimum constant rate at which the camera can record
-        self.fourcc = "MJPG"  # capture images (with no decrease in speed over time; testing is required)
+        self.fourcc = "MP4V"  # capture images (with no decrease in speed over time; testing is required)
         self.frameSize = (640, 480)  # video formats and sizes also depend and vary according to the camera used
-        self.video_filename = "/tmp/tmp_video.avi"
+        self.video_filename = "../tmp/tmp_video.mp4"
         self.video_cap = cv2.VideoCapture(self.device_index)
         self.video_writer = cv2.VideoWriter_fourcc(*self.fourcc)
         self.video_out = cv2.VideoWriter(self.video_filename, self.video_writer, self.fps, self.frameSize)
@@ -65,8 +65,8 @@ def file_manager(filename):
     if os.path.exists(str(localpath) + "/audio.wav"):
         os.remove(str(localpath) + "/audio.wav")
 
-    if os.path.exists(str(localpath) + "/" + filename + ".avi"):
-        os.remove(str(localpath) + "/" + filename + ".avi")
+    if os.path.exists(str(localpath) + "/" + filename + ".mp4"):
+        os.remove(str(localpath) + "/" + filename + ".mp4")
 
 
 if __name__ == "__main__":
