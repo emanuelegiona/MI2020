@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# IntelliJ Idea
+.idea
+
+# Secrets
+data/credentials.json
