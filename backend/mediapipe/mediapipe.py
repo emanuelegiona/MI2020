@@ -84,5 +84,5 @@ if __name__ == '__main__':
     helper = MediaPipeHelper(mediapipe_dir=mediapipe_inst)
 
     print("running on test.mp4")
-    helper.run(input_dir="/home/emanuele/source/mi/MI2020/tmp/test.mp4",
-               output_dir="/home/emanuele/source/mi/MI2020/tmp/test_out.mp4")
+    helper.run(input_dir="/home/emanuele/source/mi/MI2020/tmp/tmp_video.mp4",
+               output_dir="/home/emanuele/source/mi/MI2020/tmp/tmp_video_out.mp4")
