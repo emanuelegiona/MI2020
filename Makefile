@@ -6,6 +6,7 @@ libs:
 
 pip:
 	@echo "\nInstalling Python packages using PIP\n"
+	pip install numpy
 	pip install soundfile
 	pip install sounddevice
 	pip install pydub

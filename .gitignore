@@ -133,3 +133,6 @@ dmypy.json
 
 # Secrets
 data/credentials.json
+
+# tmp dir
+tmp
