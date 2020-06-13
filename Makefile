@@ -31,21 +31,19 @@ mediapipe:
 	sudo apt install libopencv-calib3d-dev libopencv-features2d-dev
 	sudo apt install libopencv-imgproc-dev libopencv-video-dev
 	@echo "\nCloning Google MediaPipe from its GitHub repository\n"
-	cd ..
+	cd .. && \
 	git clone https://github.com/google/mediapipe.git
-	cd MI2020
 
 patch:
 	@echo "\nReplacing original Google MediaPipe files with custom ones (also includes from github.com/rabBit64)\n"
-	cd ..
-	rm mediapipe/mediapipe/calculators/core/end_loop_calculator.h
-	cp MI2020/data/mediapipe_custom/end_loop_calculator.h mediapipe/mediapipe/calculators/core/
-	rm mediapipe/mediapipe/calculators/util/landmarks_to_render_data_calculator.cc
-	cp MI2020/data/mediapipe_custom/landmarks_to_render_data_calculator.cc mediapipe/mediapipe/calculators/util/
-	rm mediapipe/mediapipe/examples/desktop/demo_run_graph_main.cc
-	cp MI2020/data/mediapipe_custom/demo_run_graph_main.cc mediapipe/mediapipe/examples/desktop/
-	rm mediapipe/mediapipe/graphs/hand_tracking/multi_hand_tracking_desktop_live.pbtxt
-	cp MI2020/data/mediapipe_custom/multi_hand_tracking_desktop_live.pbtxt mediapipe/mediapipe/graphs/hand_tracking/
-	rm mediapipe/mediapipe/graphs/hand_tracking/subgraphs/multi_hand_renderer_cpu.pbtxt
+	cd .. && \
+	rm mediapipe/mediapipe/calculators/core/end_loop_calculator.h && \
+	cp MI2020/data/mediapipe_custom/end_loop_calculator.h mediapipe/mediapipe/calculators/core/ && \
+	rm mediapipe/mediapipe/calculators/util/landmarks_to_render_data_calculator.cc && \
+	cp MI2020/data/mediapipe_custom/landmarks_to_render_data_calculator.cc mediapipe/mediapipe/calculators/util/ && \
+	rm mediapipe/mediapipe/examples/desktop/demo_run_graph_main.cc && \
+	cp MI2020/data/mediapipe_custom/demo_run_graph_main.cc mediapipe/mediapipe/examples/desktop/ && \
+	rm mediapipe/mediapipe/graphs/hand_tracking/multi_hand_tracking_desktop_live.pbtxt && \
+	cp MI2020/data/mediapipe_custom/multi_hand_tracking_desktop_live.pbtxt mediapipe/mediapipe/graphs/hand_tracking/ && \
+	rm mediapipe/mediapipe/graphs/hand_tracking/subgraphs/multi_hand_renderer_cpu.pbtxt && \
 	cp MI2020/data/mediapipe_custom/multi_hand_renderer_cpu.pbtxt mediapipe/mediapipe/graphs/hand_tracking/subgraphs/
-	cd MI2020

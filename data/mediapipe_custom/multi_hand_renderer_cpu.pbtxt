@@ -70,6 +70,7 @@ node {
       landmark_color { r: 255 g: 0 b: 0 }
       connection_color { r: 0 g: 255 b: 0 }
       thickness: 4.0
+      visualize_landmark_depth: false
     }
   }
 }
