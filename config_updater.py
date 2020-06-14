@@ -29,14 +29,19 @@ def set_mediapipe_dir(configuration: Dict[str, str], mediapipe_dir: str) -> None
 
 
 if __name__ == '__main__':
-    with open("data/config.json") as config_file:
+    parser = argparse.ArgumentParser("GesturePad configuration helper.")
+    parser.add_argument("parent_dir", type=str,
+                        help="Absolute path to the parent directory of MI2020 and Google MediaPipe")
+    args = parser.parse_args()
+
+    config_file_path = "data/config.json"
+    config_file_path = os.path.join(args.parent_dir, "MI2020", config_file_path)
+
+    with open(config_file_path) as config_file:
         config_json = json.load(config_file)
 
-    parser = argparse.ArgumentParser("GesturePad configuration helper.")
-    parser.add_argument("mediapipe_dir", type=str, help="Absolute path to the Google MediaPipe installation directory")
-    args = parser.parse_args()
-    set_mediapipe_dir(config_json, args.mediapipe_dir)
+    set_mediapipe_dir(config_json, os.path.join(args.parent_dir, "mediapipe"))
 
-    with open("data/config.json", "w") as config_file:
+    with open(config_file_path, "w") as config_file:
         json.dump(config_json, config_file)
     print("Configuration complete.")
