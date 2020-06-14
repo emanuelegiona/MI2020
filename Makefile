@@ -32,7 +32,8 @@ mediapipe:
 	sudo apt install libopencv-imgproc-dev libopencv-video-dev
 	@echo "\nCloning Google MediaPipe from its GitHub repository\n"
 	cd .. && \
-	git clone https://github.com/google/mediapipe.git
+	git clone https://github.com/google/mediapipe.git && \
+	python MI2020/config_updater.py `pwd`/mediapipe
 
 patch:
 	@echo "\nReplacing original Google MediaPipe files with custom ones (also includes from github.com/rabBit64)\n"
