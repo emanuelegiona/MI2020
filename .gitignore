@@ -132,7 +132,7 @@ dmypy.json
 .idea
 
 # Secrets
-data/credentials.json
+data/credentials*
 
 # tmp dir
 tmp
