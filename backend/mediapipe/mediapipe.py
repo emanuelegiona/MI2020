@@ -18,6 +18,7 @@ class MediaPipeHelper:
         """
         Helper class to run Google MediaPipe from Python.
         :param mediapipe_dir: Absolute directory pointing to the installation directory of MediaPipe
+        :raises FileNotFoundError, ValueError, NotADirectoryError for invalid MediaPipe directory
         """
 
         if not os.path.exists(mediapipe_dir):

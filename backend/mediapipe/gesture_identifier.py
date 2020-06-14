@@ -19,6 +19,7 @@ class GestureIdentifier:
         :param stable_frames: Number of frames required to detect a gesture
         :param stability: Stability threshold (1 = exact same frame)
         :param gesture_interval: Number of frames to skip between gestures
+        :raises FileNotFoundError, ValueError for invalid video file path
         """
 
         if not os.path.exists(video_path):
@@ -81,6 +82,7 @@ class GestureIdentifier:
             if l1_score == best_l1:
                 best_frame = frame_buffer[index]
                 break
+        best_frame = best_frame.astype(np.uint8)
 
         return avg_l1 <= self.__stability, best_frame
 
