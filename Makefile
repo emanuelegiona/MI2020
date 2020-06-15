@@ -20,6 +20,7 @@ pip:
 	pip install pydub
 	pip install requests
 	pip install appjar
+	pip install google-cloud-speech google-cloud-automl
 
 mediapipe:
 	@echo "\nInstalling dependencies for Google MediaPipe\n"
@@ -33,7 +34,7 @@ mediapipe:
 	@echo "\nCloning Google MediaPipe from its GitHub repository\n"
 	cd .. && \
 	git clone https://github.com/google/mediapipe.git && \
-	python MI2020/config_updater.py `pwd`
+	python MI2020/utils/config_helper.py --parent_dir=`pwd`
 
 patch:
 	@echo "\nReplacing original Google MediaPipe files with custom ones (also includes from github.com/rabBit64)\n"
@@ -48,3 +49,4 @@ patch:
 	cp MI2020/data/mediapipe_custom/multi_hand_tracking_desktop_live.pbtxt mediapipe/mediapipe/graphs/hand_tracking/ && \
 	rm mediapipe/mediapipe/graphs/hand_tracking/subgraphs/multi_hand_renderer_cpu.pbtxt && \
 	cp MI2020/data/mediapipe_custom/multi_hand_renderer_cpu.pbtxt mediapipe/mediapipe/graphs/hand_tracking/subgraphs/
+	python utils/config_helper.py --credentials=`pwd`/data/credentials.json
