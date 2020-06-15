@@ -1,1 +1,8 @@
-{"mediapipe_dir": "/home/emanuele/source/mi/mediapipe", "project_id": "mi2020", "credentials": "/home/emanuele/source/mi/MI2020/data/credentials.json"}
+{"mediapipe_dir": "/home/emanuele/source/mi/mediapipe",
+  "project_id": "mi2020",
+  "credentials": "/home/emanuele/source/mi/MI2020/data/credentials.json",
+  "input_bucket_name": "mi2020-predict",
+  "output_bucket_name": "mi2020-results",
+  "location": "<TODO AutoML>",
+  "model_id": "<TODO AutoML>"
+}
