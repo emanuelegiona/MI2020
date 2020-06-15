@@ -81,7 +81,7 @@ def set_credentials_path(configuration: Dict[str, str], credentials_path: str) -
     :param configuration: Configuration for GesturePad (JSON represented in data/config.json)
     :param credentials_path: Absolute path to the Google Cloud Platform credentials file
     :return: None
-    :raises FileNotFoundError, ValueError, or NotADirectoryError for invalid MediaPipe directory
+    :raises FileNotFoundError, ValueError for invalid MediaPipe directory
     """
 
     print("Configuring Google Cloud Platform credentials file...")
