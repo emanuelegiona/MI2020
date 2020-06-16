@@ -5,6 +5,8 @@ This file contains all the necessary code to detect stable gestures in a Google 
 import os
 import numpy as np
 import imageio
+from skimage.exposure import match_histograms
+from skimage.metrics import structural_similarity
 
 from typing import List, Tuple, Optional
 
@@ -13,20 +15,28 @@ class GestureIdentifier:
 
     def __init__(self, video_path: str,
                  stable_frames: int = 3,
+                 apply_histogram_matching: bool = False,
+                 use_structural_similarity: bool = False,
                  instability_threshold: float = 2.5,
                  gesture_interval: int = 1,
                  white_threshold: float = 0.995,
                  ln_norm: int = 3,
-                 prev_gesture_threshold: float = 1.8):
+                 prev_gesture_threshold: float = 1.8,
+                 debug: bool = False):
         """
         Processes a MediaPipe-produced video to detect gestures in it.
         :param video_path: Path to the video to analyze
         :param stable_frames: Number of frames required to detect a gesture
+        :param apply_histogram_matching: Whether to apply histogram matching to any two subsequent frames
+        (default: False)
+        :param use_structural_similarity: Whether to use structural similarity in gesture identification and duplicate
+        avoidance (default: False)
         :param instability_threshold: Instability threshold (1 = exact same frame)
         :param gesture_interval: Number of frames to skip between gestures
         :param white_threshold: White percentage threshold to discard stable frames with no gestures
         :param ln_norm: Ln norm to use when comparing two subsequent gesture frames (default: L3 norm)
         :param prev_gesture_threshold: Ceiling value for Ln norm value between two subsequent gesture frames
+        :param debug: Whether to print debug information and save every landmark detected
         :raises FileNotFoundError, ValueError for invalid video file path
         """
 
@@ -37,11 +47,14 @@ class GestureIdentifier:
 
         self.__video_path = video_path
         self.__stable_frames = stable_frames
+        self.__histogram_matching = apply_histogram_matching
+        self.__use_ssim = use_structural_similarity
         self.__instability_threshold = instability_threshold
         self.__gesture_interval = gesture_interval
         self.__white_threshold = white_threshold
         self.__ln_norm = ln_norm
         self.__prev_gesture_threshold = prev_gesture_threshold
+        self.__debug = debug
 
         reader = imageio.get_reader(video_path)
         metadata = reader.get_meta_data()
@@ -50,20 +63,33 @@ class GestureIdentifier:
         self.__duration = metadata["duration"]
 
     @staticmethod
-    def __enhance_frame(frame: imageio.core.Image) -> imageio.core.Image:
+    def __enhance_frame(frame: imageio.core.Image,
+                        prev_frame: Optional[imageio.core.Image] = None,
+                        histogram_matching: bool = False
+                        ) -> (imageio.core.Image, imageio.core.Image):
         """
         Enhances the outline of landmarks in a frame, making all the rest white.
         :param frame: A frame from a MediaPipe-produced video
+        :param prev_frame: The predecessor of the current frame (Optional)
+        :param histogram_matching: Whether to apply histogram matching to the current frame w.r.t. to the previous one
         :return: The given frame with yellow landmarks and all the rest being white
         """
 
-        array = imageio.core.asarray(frame)
+        # Stabilize image colors w.r.t. the previous frame (WARNING: performance hit)
+        if histogram_matching and prev_frame is not None:
+            frame = match_histograms(frame, prev_frame, multichannel=True)
+
+        # Extract gesture only
+        # TODO: this is the culprit
+        array = np.copy(imageio.core.asarray(frame)) if histogram_matching else imageio.core.asarray(frame)
         mask_red = np.not_equal(array, (255, 0, 0))
         mask_green = np.not_equal(array, (0, 255, 0))
+        #mask_red = (array < (250, 0, 0))
+        #mask_green = (array < (0, 250, 0))
         mask = mask_red | mask_green
         array[mask] = 255
 
-        return imageio.core.Image(array)
+        return imageio.core.Image(array), frame
 
     def __compute_seconds(self, index: int) -> float:
         """
@@ -74,59 +100,125 @@ class GestureIdentifier:
         return float(index)/self.__total_frames * self.__duration
 
     @staticmethod
-    def __frame_similarity(frames: List[imageio.core.Image],
-                           normalize: bool = True,
-                           ln_norm: int = 1
-                           ) -> (List[np.ndarray], List[float], float):
+    def __normalize(frames: List[imageio.core.Image]) -> List[np.ndarray]:
         """
-        Computes similarity among a group of frames in terms of Ln norms, also computing their averages.
+        Applies normalization to the given images.
+        :param frames: List of frames to normalize
+        :return: List of normalized frames as List[np.ndarray]
+        """
+
+        frames = [*map(imageio.core.asarray, frames)]
+        frames = [*map(lambda x: x.astype(np.float32), frames)]
+        frames = [*map(lambda x: np.average(x, axis=-1), frames)]
+        frames = [*map(lambda x: (x - x.min()) * 255 / (x.max() - x.min()), frames)]
+
+        return frames
+
+    def __ln_distance(self,
+                      frames: List[imageio.core.Image],
+                      normalize: bool = True,
+                      ln_distance: int = 1
+                      ) -> (List[np.ndarray], List[float], float):
+        """
+        Computes Ln distance in a group of frames w.r.t. to the mean frame, also computing the average Ln distance.
         :param frames: List of frames to compare
         :param normalize: Apply normalization (default: True)
-        :param ln_norm: Ln norm to use (default: L1 norm)
+        :param ln_distance: Ln distance to use (default: L1 distance)
         :return: Tuple containing at positions:
-                    - 0: List of normalized frames
+                    - 0: List of (normalized) frames
                     - 1: List of Ln distances from the mean frame
                     - 2: Average of Ln distances
         """
 
         # Compute the mean frame of the buffer
         if normalize:
-            frames = [*map(imageio.core.asarray, frames)]
-            frames = [*map(lambda x: x.astype(np.float32), frames)]
-            frames = [*map(lambda x: np.average(x, axis=-1), frames)]
-            frames = [*map(lambda x: (x - x.min()) * 255 / (x.max() - x.min()), frames)]
+            frames = GestureIdentifier.__normalize(frames)
         mean_frame = sum(frames) / len(frames)
 
-        # Compute L1 or Ln norms and their average across all the frames
-        def norm_func(x: int) -> np.ndarray:
-            return np.power(x, ln_norm) if ln_norm > 1 else x
-        norms = [*map(lambda x: (norm_func(np.abs(x - mean_frame))).mean(axis=None), frames)]
-        avg_norm = sum(norms) / len(norms)
+        # Compute L1 or Ln distances and their average across all the frames
+        def ln_dist_func(x: int) -> np.ndarray:
+            return np.power(x, ln_distance) if ln_distance > 1 else x
+        distances = [*map(lambda x: (ln_dist_func(np.abs(x - mean_frame))).mean(axis=None), frames)]
+        avg_distance = sum(distances) / len(distances)
 
-        return frames, norms, avg_norm
+        if self.__debug:
+            print(f"DEBUG\nDistances: {distances}\n Average distance: {avg_distance}")
+
+        return frames, distances, avg_distance
+
+    def __structural_similarity(self,
+                                frames: List[imageio.core.Image],
+                                normalize: bool = True
+                                ) -> (List[np.ndarray], List[float], float):
+        """
+        Computes pairwise structural similarities in a group of frames, also computing the average structural similarity.
+        :param frames: List of frames to compare
+        :param normalize: Apply normalization (default: True)
+        :return: Tuple containing at positions:
+                    - 0: List of (normalized) frames
+                    - 1: List of pairwise structural similarities
+                    - 2: Average of structural similarities
+        """
+
+        if normalize:
+            frames = GestureIdentifier.__normalize(frames)
+
+        # Compute pairwise structural similarities and their average across all the frames
+        frame_cache = []
+
+        def pairwise_ssim(x):
+            nonlocal frame_cache
+            frame_cache.append(x)
+            if len(frame_cache) == 2:
+                ssim = structural_similarity(frame_cache[0], frame_cache[1])
+                frame_cache = frame_cache[1:]
+                return ssim
+            else:
+                return None
+
+        ssims = [*map(pairwise_ssim, frames)]
+        ssims = [*filter(lambda x: x is not None, ssims)]
+        avg_ssim = sum(ssims) / len(ssims)
+
+        if self.__debug:
+            print(f"DEBUG\nSimilarities: {ssims}\n Average similarity: {avg_ssim}")
+
+        return frames, ssims, avg_ssim
 
     def __check_stability(self, last_gesture: Optional[imageio.core.Image],
-                          frame_buffer: List[imageio.core.Image]
+                          frame_buffer: List[imageio.core.Image],
+                          use_structural_similarity: bool = False
                           ) -> (bool, Optional[imageio.core.Image]):
         """
         Computes stability of a list of frames, avoiding duplicate subsequent gestures.
         :param last_gesture: Frame associated with its immediate previous gesture
         :param frame_buffer: List of frames to evaluate
+        :param use_structural_similarity: Whether to use structural similarity (default: False)
         :return: Tuple containing at positions:
                     - 0: Bool indicating whether the list of frames is stable
-                    - 1: Best frame (most similar to the mean frame) in case frames are stable, or None otherwise
+                    - 1: Best frame in case frames are stable, or None otherwise
+                 Note: 'best frame':
+                    - for Ln distances, it's the one closest to the mean frame
+                    - for structural similarities, the one closest to its predecessor frame
         """
 
         # Discard unstable frames
-        frame_buffer, l1, avg_l1 = GestureIdentifier.__frame_similarity(frame_buffer)
-        if avg_l1 > self.__instability_threshold:
-            return False, None
+        if use_structural_similarity:
+            frame_buffer, metric_values, avg_metric_value = self.__structural_similarity(frame_buffer)
+            if avg_metric_value <= self.__instability_threshold:
+                return False, None
+            # Select the frame that is the most similar to its predecessor
+            best_metric_value = max(metric_values)
+        else:
+            frame_buffer, metric_values, avg_metric_value = self.__ln_distance(frame_buffer)
+            if avg_metric_value > self.__instability_threshold:
+                return False, None
+            # Select the frame that is the most similar to the mean
+            best_metric_value = min(metric_values)
 
-        # Select the frame that is the most similar to the mean
-        best_l1 = min(l1)
         best_frame = frame_buffer[0]
-        for index, l1_score in enumerate(l1):
-            if l1_score == best_l1:
+        for index, metric_value in enumerate(metric_values):
+            if metric_value == best_metric_value:
                 best_frame = frame_buffer[index]
                 break
         best_frame = best_frame.astype(np.uint8)
@@ -139,13 +231,19 @@ class GestureIdentifier:
 
         # Discard gestures that are too similar to its immediate predecessor
         if last_gesture is not None:
-            mask = np.not_equal(last_gesture, 255)
-            _, _, avg_ln = GestureIdentifier.__frame_similarity([last_gesture[mask], best_frame[mask]],
-                                                                normalize=False,
-                                                                ln_norm=self.__ln_norm)
-            avg_ln /= 100**self.__ln_norm
-            if avg_ln <= self.__prev_gesture_threshold:
-                return False, None
+            if use_structural_similarity:
+                _, _, avg_ssim = self.__structural_similarity([last_gesture, best_frame],
+                                                              normalize=False)
+                if avg_ssim >= self.__prev_gesture_threshold:
+                    return False, None
+            else:
+                mask = np.not_equal(last_gesture, 255)
+                _, _, avg_ln = self.__ln_distance([last_gesture[mask], best_frame[mask]],
+                                                  normalize=False,
+                                                  ln_distance=self.__ln_norm)
+                avg_ln /= 100**self.__ln_norm
+                if avg_ln <= self.__prev_gesture_threshold:
+                    return False, None
 
         return True, best_frame
 
@@ -160,12 +258,18 @@ class GestureIdentifier:
         gestures = []
         reader = imageio.get_reader(self.__video_path)
         frame_buffer = []
+        last_frame = None
         last_gesture = None
         for index, frame in enumerate(reader):
-            new_frame = self.__enhance_frame(frame)
-            frame_buffer.append(new_frame)
+            landmarks, new_frame = self.__enhance_frame(frame, last_frame, histogram_matching=self.__histogram_matching)
+            last_frame = new_frame
+            if self.__debug:
+                gestures.append((landmarks, self.__compute_seconds(index - self.__stable_frames + 1)))
+            frame_buffer.append(landmarks)
             if len(frame_buffer) == self.__stable_frames:
-                stable, gesture_frame = self.__check_stability(last_gesture, frame_buffer)
+                stable, gesture_frame = self.__check_stability(last_gesture,
+                                                               frame_buffer,
+                                                               use_structural_similarity=self.__use_ssim)
                 if stable:
                     gestures.append((gesture_frame, self.__compute_seconds(index-self.__stable_frames+1)))
                     last_gesture = gesture_frame
@@ -175,11 +279,31 @@ class GestureIdentifier:
 
 
 if __name__ == '__main__':
-    original_vid = "../../tmp/tmp_video.mp4"
     mediapipe_vid = "../../tmp/tmp_video_out.mp4"
+    #mediapipe_vid = "../../tmp/tmp_video_out_angelo.mp4"
     output_dir = "../../tmp/frame_test/"
+    #output_dir = "../../tmp/frame_test_angelo/"
 
-    identifier = GestureIdentifier(mediapipe_vid, stable_frames=5, gesture_interval=3)
+    debug = False
+    histogram_preprocess = False
+    ssim = True
+    if ssim:
+        ssim_stability_threshold = 0.95
+        ssim_too_similar_threshold = 0.95
+        identifier = GestureIdentifier(mediapipe_vid,
+                                       stable_frames=7,
+                                       apply_histogram_matching=histogram_preprocess,
+                                       use_structural_similarity=ssim,
+                                       instability_threshold=ssim_stability_threshold,
+                                       gesture_interval=3,
+                                       prev_gesture_threshold=ssim_too_similar_threshold,
+                                       debug=debug)
+    else:
+        identifier = GestureIdentifier(mediapipe_vid,
+                                       stable_frames=5,
+                                       apply_histogram_matching=histogram_preprocess,
+                                       gesture_interval=3,
+                                       debug=debug)
     stable_gestures = identifier.process()
     print("Stable gestures found: {n}".format(n=len(stable_gestures)))
     for g in stable_gestures:

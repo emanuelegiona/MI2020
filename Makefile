@@ -11,6 +11,7 @@ pip:
 	pip install tensorflow
 	pip install shapely
 	pip install scipy
+	pip install scikit-image
 	pip install pillow
 	pip install imageio
 	pip install imageio-ffmpeg
