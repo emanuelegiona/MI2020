@@ -6,6 +6,38 @@ import os
 from utils.config_helper import read_config
 from google.cloud import automl, storage
 from typing import List, Any
+from enum import Enum, auto
+
+
+class Gesture(Enum):
+    """
+    Enumerator to identify which gesture has been detected.
+    """
+
+    NO_GESTURE = auto()
+
+    # Emphasis
+    BOLD = auto()
+    ITALICS = auto()
+    UNDERLINED = auto()
+
+    # Punctuation
+    COMMA = auto()
+    FULL_STOP = auto()
+    COLON = auto()
+    SEMICOLON = auto()
+    EXCLAMATION_MARK = auto()
+    QUESTION_MARK = auto()
+
+    # Other
+    CAPS_LOCK = auto()
+    NEW_LINE = auto()
+
+
+GESTURE_PAIR = {Gesture.BOLD,
+                Gesture.ITALICS,
+                Gesture.UNDERLINED,
+                Gesture.CAPS_LOCK}
 
 
 class GestureClient:
