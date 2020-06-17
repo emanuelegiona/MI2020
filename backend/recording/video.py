@@ -2,7 +2,7 @@ import threading
 import time
 import os
 import cv2
-from backend.audio import Audio
+from backend.recording.audio import Audio
 
 
 class Video:
