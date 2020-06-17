@@ -1,6 +1,7 @@
 """
 This file contains all the necessary code to fuse recognized words and gestures based on their timestamps.
 """
+
 from abc import ABC
 from typing import List
 from clients.gestures import Gesture, GESTURE_PAIR
