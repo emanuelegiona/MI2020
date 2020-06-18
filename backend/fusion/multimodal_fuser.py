@@ -4,8 +4,8 @@ This file contains all the necessary code to fuse recognized words and gestures 
 
 from abc import ABC
 from typing import List
-from clients.gestures import Gesture, GESTURE_PAIR
-from .multimodal_types import WordOutput, GestureOutput, ModalityOutput
+from backend.clients.gestures import Gesture, GESTURE_PAIR
+from backend.fusion.multimodal_types import WordOutput, GestureOutput, ModalityOutput
 
 
 class MultimodalFuser:

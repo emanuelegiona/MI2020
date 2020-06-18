@@ -5,7 +5,7 @@ This file contains definitions for modality types, their inputs and outputs.
 import os
 from copy import deepcopy
 from typing import Tuple, Optional, Any, Dict
-from clients.gestures import Gesture
+from backend.clients.gestures import Gesture
 
 
 class ModalityInput:

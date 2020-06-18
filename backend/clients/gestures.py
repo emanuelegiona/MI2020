@@ -39,6 +39,19 @@ GESTURE_PAIR = {Gesture.BOLD,
                 Gesture.UNDERLINED,
                 Gesture.CAPS_LOCK}
 
+GESTURE_LOOKUP = {"NO_GESTURE": Gesture.NO_GESTURE,
+                  "BOLD": Gesture.BOLD,
+                  "ITALICS": Gesture.ITALICS,
+                  "UNDERLINED": Gesture.UNDERLINED,
+                  "COMMA": Gesture.COMMA,
+                  "FULL_STOP": Gesture.FULL_STOP,
+                  "SEMICOLON": Gesture.SEMICOLON,
+                  "COLON": Gesture.COLON,
+                  "EXCLAMATION_MARK": Gesture.EXCLAMATION_MARK,
+                  "QUESTION_MARK": Gesture.QUESTION_MARK,
+                  "CAPS_LOCK": Gesture.CAPS_LOCK,
+                  "NEW_LINE": Gesture.NEW_LINE}
+
 
 class GestureClient:
 
@@ -122,13 +135,13 @@ class GestureClient:
 
         return operation
 
-    def get_gestures(self, operation: Any, prefix: str = "prediction") -> List[str]:
+    def get_gestures(self, operation: Any, prefix: str = "prediction") -> List[Gesture]:
         """
         Waits for the labels associated to images due to a previously obtained Operation object through a process_images
         request.
         :param operation: google.longrunning.Operation object to wait completion for
         :param prefix: Prefix to apply when iterating over contents of a bucket
-        :return: List of labels associated to images, consistent with the original ordering at process_images
+        :return: List of Gesture associated to images, consistent with the original ordering provided at process_images
         """
 
         # Enforce waiting for results, if necessary

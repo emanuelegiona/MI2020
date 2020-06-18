@@ -3,7 +3,7 @@ This file contains all the necessary code to 'translate' a ModalityOutput uttera
 E.g. 'Gesture.BOLD' is interpreted either as '<b>' or '</b>' for HTML documents, while in Markdown '**' is used.
 """
 
-from clients.gestures import Gesture, GESTURE_PAIR
+from backend.clients.gestures import Gesture, GESTURE_PAIR
 from typing import Optional
 
 
