@@ -275,6 +275,12 @@ class Backend:
         return self.__fuser.fuse(words, gestures)
 
     def apply_format(self, multimodal_stream: List[ModalityOutput]) -> List[str]:
+        """
+        Uses formatting rules for a textual format (i.e. HTML) to produce the output as a string.
+        :param multimodal_stream: List containing ordered words and gestures
+        :return: List of strings representing the formatted vocal input
+        """
+
         processed_stream = []
         gesture_queue = []
         caps_lock = False
@@ -305,9 +311,6 @@ class Backend:
 
         return processed_stream
     # --- --- ---
-
-    def test(self):
-        return "all good"
 
 
 if __name__ == '__main__':

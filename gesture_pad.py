@@ -154,7 +154,7 @@ class GesturePad:
         self.__thisTextArea.event_generate("<<Paste>>")
 
     def __rec(self):
-        self.__thisTextArea.insert(CURRENT, " {text} ".format(text=self.__backend.test()))
+        self.__thisTextArea.insert(CURRENT, " Acquisition result ")
 
     def run(self):
         # Run main application
