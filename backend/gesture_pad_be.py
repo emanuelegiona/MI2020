@@ -12,10 +12,10 @@ from backend.recording.video import Video
 from backend.mediapipe.mediapipe_helper import MediaPipeHelper
 from backend.mediapipe.gesture_identifier import GestureIdentifier
 from backend.clients.speech import SpeechClient
-from backend.clients.gestures import GestureClient
+from backend.clients.gestures import Gesture, GESTURE_PAIR, GestureClient
 from backend.fusion.multimodal_types import ModalityOutput, AudioInput, WordOutput, VideoInput, GestureOutput
 from backend.fusion.multimodal_fuser import GesturePadFuser
-from backend.export.formats import HTMLFormat, MDFormat
+from backend.export.formats import HTMLFormat
 
 from typing import Tuple, List, Any
 from time import sleep
@@ -276,6 +276,32 @@ class Backend:
 
     def apply_format(self, multimodal_stream: List[ModalityOutput]) -> List[str]:
         processed_stream = []
+        gesture_queue = []
+        caps_lock = False
+        for token in multimodal_stream:
+            utterance = token.utterance
+
+            # Gestures
+            if type(token) == GestureOutput:
+                # Handle gestures that work in pairs in a queue
+                if utterance in GESTURE_PAIR:
+                    if len(gesture_queue) > 0 and gesture_queue[-1].utterance == utterance:
+                        gesture_queue = gesture_queue[:-1]
+
+                        if utterance != Gesture.CAPS_LOCK:
+                            processed_stream.append(self.__format(utterance, close=True))
+                        else:
+                            caps_lock = False
+                    else:
+                        gesture_queue.append(token)
+                        if utterance != Gesture.CAPS_LOCK:
+                            processed_stream.append(self.__format(utterance, close=False))
+                        else:
+                            caps_lock = True
+
+            # Words
+            else:
+                processed_stream.append(str.upper(utterance) if caps_lock else utterance)
 
         return processed_stream
     # --- --- ---
@@ -298,25 +324,27 @@ if __name__ == '__main__':
                 debug=False)
 
     # Recording tests
-    #v, a = b.start_recording()
-    #sleep(15)
-    #v, a = b.stop_recording(v, a)
+    v, a = b.start_recording()
+    sleep(15)
+    v, a = b.stop_recording(v, a)
     # OK
 
     # Preprocessing tests
-    #frames, timings = b.preprocess_video(v)
+    frames, timings = b.preprocess_video(v)
     # OK
 
     # Cloud requests tests
-    #gestures_op = b.send_video(frame_paths=frames)
-    #words_op = b.send_audio(audio_input=a)
+    gestures_op = b.send_video(frame_paths=frames)
+    words_op = b.send_audio(audio_input=a)
     # pending
 
     # Cloud response tests
-    #g_list = b.process_video_response(operation=gestures_op, gesture_timings=timings)
-    #w_list = b.process_audio_response(operation=words_op)
+    g_list = b.process_video_response(operation=gestures_op, gesture_timings=timings)
+    w_list = b.process_audio_response(operation=words_op)
     # pending
 
     # Multimodal fusion tests
+    fused = b.fuse(gestures=g_list, words=w_list)
+    formatted = b.apply_format(multimodal_stream=fused)
+    print(formatted)
     # pending
-    print("nice")

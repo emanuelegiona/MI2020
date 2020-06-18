@@ -14,7 +14,7 @@ class Format:
         Abstraction behind any text format.
         """
 
-        self.mapping = {Gesture.NO_GESTURE: None,
+        self.mapping = {Gesture.NO_GESTURE: "",
                         Gesture.COMMA: ",",
                         Gesture.FULL_STOP: ".",
                         Gesture.COLON: ":",
