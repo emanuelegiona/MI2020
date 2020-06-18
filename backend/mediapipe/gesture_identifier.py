@@ -18,8 +18,8 @@ class GestureIdentifier:
                  apply_histogram_matching: bool = False,
                  use_structural_similarity: bool = False,
                  instability_threshold: float = 2.5,
-                 gesture_interval: int = 1,
-                 gesture_sec_interval: int = 2.0,
+                 gesture_frames_interval: int = 1,
+                 gesture_time_interval: float = 2.0,
                  black_threshold: float = 0.995,
                  ln_norm: int = 3,
                  prev_gesture_threshold: float = 0.0003,
@@ -33,8 +33,8 @@ class GestureIdentifier:
         :param use_structural_similarity: Whether to use structural similarity in gesture identification and duplicate
         avoidance (default: False)
         :param instability_threshold: Instability threshold (1 = exact same frame)
-        :param gesture_interval: Number of frames to skip between gestures
-        :param gesture_sec_interval: Minimum number of seconds between two subsequent gestures
+        :param gesture_frames_interval: Number of frames to skip between gestures
+        :param gesture_time_interval: Time to skip between two subsequent gestures are recognized (in seconds)
         :param black_threshold: Black percentage threshold to discard stable frames with no gestures
         :param ln_norm: Ln norm to use when comparing two subsequent gesture frames (default: L3 norm)
         :param prev_gesture_threshold: Ceiling value for Ln norm value between two subsequent gesture frames
@@ -52,8 +52,8 @@ class GestureIdentifier:
         self.__histogram_matching = apply_histogram_matching
         self.__use_ssim = use_structural_similarity
         self.__instability_threshold = instability_threshold
-        self.__gesture_interval = gesture_interval
-        self.__gesture_sec_interval = gesture_sec_interval
+        self.__gesture_frames_interval = gesture_frames_interval
+        self.__gesture_time_interval = gesture_time_interval
         self.__black_threshold = black_threshold
         self.__ln_norm = ln_norm
         self.__prev_gesture_threshold = prev_gesture_threshold
@@ -274,12 +274,12 @@ class GestureIdentifier:
                 if stable:
                     seconds = self.__compute_seconds(index - self.__stable_frames + 1)
                     # if the difference between new gesture and last gesture timestamps
-                    # is >= gesture_sec_interval, the new gesture is added.
-                    if (last_gesture is not None and seconds - gestures[-1][1] >= self.__gesture_sec_interval) or \
+                    # is >= gesture_time_interval, the new gesture is added.
+                    if (last_gesture is not None and seconds - gestures[-1][1] >= self.__gesture_time_interval) or \
                             (last_gesture is None):
                         gestures.append((gesture_frame, seconds))
                         last_gesture = gesture_frame
-                frame_buffer = frame_buffer[self.__gesture_interval:]
+                frame_buffer = frame_buffer[self.__gesture_frames_interval:]
 
         return gestures
 
@@ -301,14 +301,14 @@ if __name__ == '__main__':
                                        apply_histogram_matching=histogram_preprocess,
                                        use_structural_similarity=ssim,
                                        instability_threshold=ssim_stability_threshold,
-                                       gesture_interval=3,
+                                       gesture_frames_interval=3,
                                        prev_gesture_threshold=ssim_too_similar_threshold,
                                        debug=debug)
     else:
         identifier = GestureIdentifier(mediapipe_vid,
                                        stable_frames=5,
                                        apply_histogram_matching=histogram_preprocess,
-                                       gesture_interval=3,
+                                       gesture_frames_interval=3,
                                        debug=debug)
     stable_gestures = identifier.process()
     print("Stable gestures found: {n}".format(n=len(stable_gestures)))
