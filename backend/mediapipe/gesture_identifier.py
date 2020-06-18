@@ -19,9 +19,10 @@ class GestureIdentifier:
                  use_structural_similarity: bool = False,
                  instability_threshold: float = 2.5,
                  gesture_interval: int = 1,
-                 white_threshold: float = 0.995,
+                 gesture_sec_interval: int = 2.0,
+                 black_threshold: float = 0.995,
                  ln_norm: int = 3,
-                 prev_gesture_threshold: float = 1.8,
+                 prev_gesture_threshold: float = 0.0003,
                  debug: bool = False):
         """
         Processes a MediaPipe-produced video to detect gestures in it.
@@ -33,7 +34,8 @@ class GestureIdentifier:
         avoidance (default: False)
         :param instability_threshold: Instability threshold (1 = exact same frame)
         :param gesture_interval: Number of frames to skip between gestures
-        :param white_threshold: White percentage threshold to discard stable frames with no gestures
+        :param gesture_sec_interval: Minimum number of seconds between two subsequent gestures
+        :param black_threshold: Black percentage threshold to discard stable frames with no gestures
         :param ln_norm: Ln norm to use when comparing two subsequent gesture frames (default: L3 norm)
         :param prev_gesture_threshold: Ceiling value for Ln norm value between two subsequent gesture frames
         :param debug: Whether to print debug information and save every landmark detected
@@ -51,7 +53,8 @@ class GestureIdentifier:
         self.__use_ssim = use_structural_similarity
         self.__instability_threshold = instability_threshold
         self.__gesture_interval = gesture_interval
-        self.__white_threshold = white_threshold
+        self.__gesture_sec_interval = gesture_sec_interval
+        self.__black_threshold = black_threshold
         self.__ln_norm = ln_norm
         self.__prev_gesture_threshold = prev_gesture_threshold
         self.__debug = debug
@@ -68,11 +71,11 @@ class GestureIdentifier:
                         histogram_matching: bool = False
                         ) -> (imageio.core.Image, imageio.core.Image):
         """
-        Enhances the outline of landmarks in a frame, making all the rest white.
+        Enhances the outline of landmarks in a frame, making all the rest black.
         :param frame: A frame from a MediaPipe-produced video
         :param prev_frame: The predecessor of the current frame (Optional)
         :param histogram_matching: Whether to apply histogram matching to the current frame w.r.t. to the previous one
-        :return: The given frame with yellow landmarks and all the rest being white
+        :return: The given frame with yellow landmarks and all the rest being black
         """
 
         # Stabilize image colors w.r.t. the previous frame (WARNING: performance hit)
@@ -82,12 +85,11 @@ class GestureIdentifier:
         # Extract gesture only
         # TODO: this is the culprit
         array = np.copy(imageio.core.asarray(frame)) if histogram_matching else imageio.core.asarray(frame)
-        mask_red = np.not_equal(array, (255, 0, 0))
-        mask_green = np.not_equal(array, (0, 255, 0))
-        #mask_red = (array < (250, 0, 0))
-        #mask_green = (array < (0, 250, 0))
-        mask = mask_red | mask_green
-        array[mask] = 255
+        mask_green = (np.any(array == (0, 255, 0), axis=-1))
+        mask_red = (np.any(array == (255, 0, 0), axis=-1))
+        array[np.logical_not(mask_green)] = [0, 0, 0]
+        array[np.logical_not(mask_red)] = [0, 0, 0]
+        array[(np.all(array == (255, 255, 255), axis=-1))] = [0, 0, 0]
 
         return imageio.core.Image(array), frame
 
@@ -223,12 +225,11 @@ class GestureIdentifier:
                 break
         best_frame = best_frame.astype(np.uint8)
 
-        # Discard frames with too much white (-> no gestures present)
-        white_percent = np.sum(best_frame == 255, dtype=np.float32)
-        white_percent = float(white_percent / best_frame.size)
-        if white_percent > self.__white_threshold:
+        # Discard frames with too much black (-> no gestures present)
+        black_percent = np.sum(best_frame == 0, dtype=np.float32)
+        black_percent = float(black_percent / best_frame.size)
+        if black_percent > self.__black_threshold:
             return False, None
-
         # Discard gestures that are too similar to its immediate predecessor
         if last_gesture is not None:
             if use_structural_similarity:
@@ -271,8 +272,13 @@ class GestureIdentifier:
                                                                frame_buffer,
                                                                use_structural_similarity=self.__use_ssim)
                 if stable:
-                    gestures.append((gesture_frame, self.__compute_seconds(index-self.__stable_frames+1)))
-                    last_gesture = gesture_frame
+                    seconds = self.__compute_seconds(index - self.__stable_frames + 1)
+                    # if the difference between new gesture and last gesture timestamps
+                    # is >= gesture_sec_interval, the new gesture is added.
+                    if (last_gesture is not None and seconds - gestures[-1][1] >= self.__gesture_sec_interval) or \
+                            (last_gesture is None):
+                        gestures.append((gesture_frame, seconds))
+                        last_gesture = gesture_frame
                 frame_buffer = frame_buffer[self.__gesture_interval:]
 
         return gestures
@@ -286,7 +292,7 @@ if __name__ == '__main__':
 
     debug = False
     histogram_preprocess = False
-    ssim = True
+    ssim = False
     if ssim:
         ssim_stability_threshold = 0.95
         ssim_too_similar_threshold = 0.95
