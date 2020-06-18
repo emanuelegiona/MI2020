@@ -7,11 +7,15 @@ import imageio
 import math
 
 from utils.config_helper import read_config
-from recording import Audio, Video
-from mediapipe import MediaPipeHelper, GestureIdentifier
-from clients import SpeechClient, GestureClient
-from fusion import AudioInput, WordOutput, VideoInput, GestureOutput, GesturePadFuser
-from export import HTMLFormat, MDFormat
+from backend.recording.audio import Audio
+from backend.recording.video import Video
+from backend.mediapipe.mediapipe_helper import MediaPipeHelper
+from backend.mediapipe.gesture_identifier import GestureIdentifier
+from backend.clients.speech import SpeechClient
+from backend.clients.gestures import GestureClient
+from backend.fusion.multimodal_types import ModalityOutput, AudioInput, WordOutput, VideoInput, GestureOutput
+from backend.fusion.multimodal_fuser import GesturePadFuser
+from backend.export.formats import HTMLFormat, MDFormat
 
 from typing import Tuple, List, Any
 from time import sleep
@@ -65,9 +69,8 @@ class Backend:
         self.__mediapipe = MediaPipeHelper(mediapipe_dir=self.__mediapipe_dir)
         self.__gesture_client = GestureClient(csv_path=self.__csv_path, prediction_path=self.__predictions_dir)
         self.__speech_client = SpeechClient()
-
-        # TODO: multimodal fusion
-        # TODO: export to format
+        self.__fuser = GesturePadFuser(sync_tolerance=0.25)
+        self.__format = HTMLFormat()
 
         # Internal state
         self.__recording = False
@@ -193,6 +196,8 @@ class Backend:
         """
 
         operation = self.__gesture_client.process_images(image_paths=frame_paths)
+        self.__waiting_gestures = True
+
         if not self.__debug:
             for path in frame_paths:
                 try:
@@ -211,6 +216,8 @@ class Backend:
         """
 
         operation = self.__speech_client.process_audio(audio_path=audio_input.path)
+        self.__waiting_audio = True
+
         if not self.__debug:
             try:
                 os.remove(audio_input.path)
@@ -219,23 +226,62 @@ class Backend:
 
         return operation
 
-    def process_video_response(self):
-        pass
+    def process_video_response(self, operation: Any, gesture_timings: List[float]) -> List[GestureOutput]:
+        # TODO: not fully implemented, do not test yet
+        """
+        Waits for the recognized Gestures from a previous send_video request.
+        :param operation: google.longrunning.Operation object to wait completion for (obtained from send_video)
+        :param gesture_timings: List of timings associated with each Gesture (obtained from preprocess_video)
+        :return: List of GestureOutput objects (Gesture, timing pairs)
+        """
 
-    def process_audio_response(self):
-        pass
+        if not self.__waiting_gestures:
+            raise RuntimeError("There is no ongoing cloud gesture processing.")
+
+        recognized_gestures = self.__gesture_client.get_gestures(operation)
+        self.__waiting_gestures = False
+
+        processed_gestures = []
+        for gesture, timing in zip(recognized_gestures, gesture_timings):
+            processed_gestures.append(GestureOutput(gesture=gesture, timing=timing))
+
+        return processed_gestures
+
+    def process_audio_response(self, operation: Any) -> List[WordOutput]:
+        """
+        Waits for the recognized words from a previous send_audio request.
+        :param operation: google.longrunning.Operation object to wait completion for (obtained from send_audio)
+        :return: List of WordOutput objects (string, start_time, end_time associations)
+        """
+
+        if not self.__waiting_audio:
+            raise RuntimeError("There is no ongoing cloud audio processing.")
+
+        recognized_words = self.__speech_client.get_words(operation)
+        self.__waiting_audio = False
+
+        return [*map(lambda x: WordOutput(word=x[0], timing=x[1], end_timing=x[2]), recognized_words)]
     # --- --- ---
 
     # --- Multimodal fusion, formatting ---
-    def parse_output(self):
-        # TODO: wait for Google Cloud results
-        # TODO: multimodal fusion
-        pass
+    def fuse(self, gestures: List[GestureOutput], words: List[WordOutput]) -> List[ModalityOutput]:
+        """
+        Fuses audio and video modalities tokens, providing a single ordering among words and gestures.
+        :param gestures: Recognized gestures (from process_video_response)
+        :param words: Recognized words (from process_audio_response)
+        :return: List containing ordered words and gestures
+        """
 
-    def apply_format(self):
-        # TODO: apply format
-        pass
+        return self.__fuser.fuse(words, gestures)
+
+    def apply_format(self, multimodal_stream: List[ModalityOutput]) -> List[str]:
+        processed_stream = []
+
+        return processed_stream
     # --- --- ---
+
+    def test(self):
+        return "all good"
 
 
 if __name__ == '__main__':
@@ -252,13 +298,25 @@ if __name__ == '__main__':
                 debug=False)
 
     # Recording tests
-    v, a = b.start_recording()
-    sleep(15)
-    v, a = b.stop_recording(v, a)
+    #v, a = b.start_recording()
+    #sleep(15)
+    #v, a = b.stop_recording(v, a)
     # OK
 
     # Preprocessing tests
-    frames, timings = b.preprocess_video(v)
-    #print(len(frames), frames)
-    #print(len(timings), timings)
+    #frames, timings = b.preprocess_video(v)
     # OK
+
+    # Cloud requests tests
+    #gestures_op = b.send_video(frame_paths=frames)
+    #words_op = b.send_audio(audio_input=a)
+    # pending
+
+    # Cloud response tests
+    #g_list = b.process_video_response(operation=gestures_op, gesture_timings=timings)
+    #w_list = b.process_audio_response(operation=words_op)
+    # pending
+
+    # Multimodal fusion tests
+    # pending
+    print("nice")
