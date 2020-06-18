@@ -5,11 +5,25 @@ from tkinter import *
 from tkinter.messagebox import *
 # To get the dialog box to open when required
 from tkinter.filedialog import *
+from backend.gesture_pad_be import Backend
+from utils.config_helper import read_config
 
 
 class GesturePad:
 
     def __init__(self, width=600, height=400):
+        c, _ = read_config()
+        backend = Backend(mediapipe_dir=c["mediapipe_dir"],
+                          audio_path="tmp/integration_audio.wav",
+                          video_path="tmp/integration_video.mp4",
+                          mp_video_path="tmp/integration_video_mp.mp4",
+                          gestures_dir="tmp/integration_frames",
+                          gesture_prefix="image",
+                          csv_path="tmp/integration_csv.csv",
+                          predictions_dir="tmp/integration_results",
+                          debug=False)
+        self.__backend = backend
+
         self.__root = Tk()
         self.__file = None
         # default window width and height
@@ -39,7 +53,7 @@ class GesturePad:
         top = (screenHeight / 2) - (self.__thisHeight / 2)
 
         # For top and bottom
-        self.__root.geometry('%dx%d+%d+%d' % (self.__thisWidth,self.__thisHeight,left, top))
+        self.__root.geometry('%dx%d+%d+%d' % (self.__thisWidth, self.__thisHeight, left, top))
 
         self.__root.grid_rowconfigure(0, weight=1)
         self.__root.grid_columnconfigure(0, weight=1)
@@ -75,8 +89,7 @@ class GesturePad:
                                        menu=self.__thisEditMenu)
 
         self.__thisMenuBar.add_command(label="Rec",
-                                        command=self.__rec)
-
+                                       command=self.__rec)
 
         self.__root.config(menu=self.__thisMenuBar)
 
@@ -141,7 +154,7 @@ class GesturePad:
         self.__thisTextArea.event_generate("<<Paste>>")
 
     def __rec(self):
-        self.__thisTextArea.insert(CURRENT, " Acquisition result ")
+        self.__thisTextArea.insert(CURRENT, " {text} ".format(text=self.__backend.test()))
 
     def run(self):
         # Run main application
@@ -152,4 +165,3 @@ class GesturePad:
 if __name__ == "__main__":
     gesturepad = GesturePad()
     gesturepad.run()
-
