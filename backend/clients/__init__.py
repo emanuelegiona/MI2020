@@ -1,2 +1,2 @@
-from gestures import GestureClient
-from speech import SpeechClient
+from .gestures import GestureClient
+from .speech import SpeechClient

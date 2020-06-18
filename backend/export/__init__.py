@@ -1,1 +1,1 @@
-from formats import HTMLFormat, MDFormat
+from .formats import HTMLFormat, MDFormat

@@ -2,7 +2,7 @@ import threading
 import time
 import os
 import cv2
-from audio import Audio
+from recording import Audio
 from typing import Tuple
 
 

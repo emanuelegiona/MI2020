@@ -1,2 +1,2 @@
-from audio import Audio
-from video import Video
+from .audio import Audio
+from .video import Video
