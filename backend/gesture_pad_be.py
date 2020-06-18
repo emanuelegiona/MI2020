@@ -6,20 +6,21 @@ import os
 import imageio
 import math
 
-#from utils.config_helper import read_config
+from utils.config_helper import read_config
 from recording import Audio, Video
 from mediapipe import MediaPipeHelper, GestureIdentifier
 from clients import SpeechClient, GestureClient
 from fusion import AudioInput, WordOutput, VideoInput, GestureOutput, GesturePadFuser
 from export import HTMLFormat, MDFormat
 
-from typing import Tuple
+from typing import Tuple, List, Any
 from time import sleep
 
 
 class Backend:
 
     def __init__(self,
+                 mediapipe_dir: str,
                  audio_path: str,
                  video_path: str,
                  mp_video_path: str,
@@ -30,6 +31,7 @@ class Backend:
                  debug: bool = False):
         """
         Implements the back end of GesturePad, linking all modules together in the intended flow.
+        :param mediapipe_dir: Path to the Google MediaPipe installation directory
         :param audio_path: Path to the audio file to write after recording
         :param video_path: Path to the video file to write after recording
         :param mp_video_path: Path to the video file to write after Google MediaPipe processing
@@ -40,9 +42,18 @@ class Backend:
         :param debug: Whether to print debug information and keep intermediate files for inspection (default: False)
         """
 
-        # TODO: sanity check on paths
+        if not os.path.exists(gestures_dir):
+            raise FileNotFoundError("Invalid gesture directory.")
+        elif not os.path.isdir(gestures_dir):
+            raise NotADirectoryError("The path provided as gestures directory is not a directory.")
+        elif not os.path.exists(predictions_dir):
+            raise FileNotFoundError("Invalid predictions directory.")
+        elif not os.path.isdir(predictions_dir):
+            raise NotADirectoryError("The path provided as predictions directory is not a directory.")
+
         self.__debug = debug
 
+        self.__mediapipe_dir = mediapipe_dir
         self.__audio_path = audio_path
         self.__video_path = video_path
         self.__mp_video_path = mp_video_path
@@ -51,14 +62,17 @@ class Backend:
         self.__csv_path = csv_path
         self.__predictions_dir = predictions_dir
 
-        # TODO: MediaPipe helper
-        # TODO: gesture identifier
-        # TODO: Google Cloud clients
+        self.__mediapipe = MediaPipeHelper(mediapipe_dir=self.__mediapipe_dir)
+        self.__gesture_client = GestureClient(csv_path=self.__csv_path, prediction_path=self.__predictions_dir)
+        self.__speech_client = SpeechClient()
+
         # TODO: multimodal fusion
         # TODO: export to format
 
         # Internal state
         self.__recording = False
+        self.__waiting_audio = False
+        self.__waiting_gestures = False
 
     # --- Recording ---
     def start_recording(self,
@@ -131,18 +145,79 @@ class Backend:
     # --- --- ---
 
     # --- Audio/video processing ---
-    def preprocess_video(self, video_input: VideoInput):
-        # TODO: MediaPipe
-        # TODO: gesture identifier
-        pass
+    def preprocess_video(self, video_input: VideoInput) -> Tuple[List[str], List[float]]:
+        """
+        Preprocess the video by running Google MediaPipe on it, then extracting stable frames.
+        :param video_input: VideoInput object representing the recorded video
+        :return: Tuple containing at positions:
+                - 0: List of paths to stable frames stored on disk
+                - 1: List of timings associated with stable frames
+        """
 
-    def send_video(self):
-        # TODO: Google Cloud async processing
-        pass
+        # Google MediaPipe preprocessing
+        self.__mediapipe.run(input_dir=os.path.abspath(video_input.path),
+                             output_dir=os.path.abspath(self.__mp_video_path))
 
-    def send_audio(self):
-        # TODO: Google Cloud async processing
-        pass
+        if not self.__debug:
+            os.remove(self.__video_path)
+
+        # Run GestureIdentifier
+        gesture_identifier = GestureIdentifier(video_path=self.__mp_video_path,
+                                               stable_frames=5,
+                                               instability_threshold=2.5,
+                                               gesture_frames_interval=3,
+                                               gesture_time_interval=2,
+                                               black_threshold=0.995,
+                                               ln_norm=3,
+                                               prev_gesture_threshold=0.0003,
+                                               debug=self.__debug)
+
+        stable_frames = gesture_identifier.process()
+        frame_paths = []
+        frame_timings = []
+        for i, (frame, timing) in enumerate(stable_frames):
+            path = os.path.join(self.__gestures_dir,
+                                "{pref}{i}.jpeg".format(pref=self.__gesture_prefix, i=i))
+            imageio.imwrite(path, frame)
+            frame_paths.append(path)
+            frame_timings.append(timing)
+
+        return frame_paths, frame_timings
+
+    def send_video(self, frame_paths: List[str]) -> Any:
+        # TODO: not fully implemented, do not test yet
+        """
+        Sends a batch of images for image classification in an asynchronous fashion.
+        :param frame_paths: List of paths to stable frame files to classify
+        :return: google.longrunning.Operation object to later poll for response
+        """
+
+        operation = self.__gesture_client.process_images(image_paths=frame_paths)
+        if not self.__debug:
+            for path in frame_paths:
+                try:
+                    os.remove(path)
+                except RuntimeError:
+                    pass
+            os.remove(self.__csv_path)
+
+        return operation
+
+    def send_audio(self, audio_input: AudioInput) -> Any:
+        """
+        Sends a file for word recognition in an asynchronous fashion.
+        :param audio_input: AudioInput object representing the recorded audio
+        :return: google.longrunning.Operation object to later poll for response
+        """
+
+        operation = self.__speech_client.process_audio(audio_path=audio_input.path)
+        if not self.__debug:
+            try:
+                os.remove(audio_input.path)
+            except RuntimeError:
+                pass
+
+        return operation
 
     def process_video_response(self):
         pass
@@ -164,7 +239,10 @@ class Backend:
 
 
 if __name__ == '__main__':
-    b = Backend(audio_path="../tmp/integration_audio.wav",
+    c, _ = read_config()
+
+    b = Backend(mediapipe_dir=c["mediapipe_dir"],
+                audio_path="../tmp/integration_audio.wav",
                 video_path="../tmp/integration_video.mp4",
                 mp_video_path="../tmp/integration_video_mp.mp4",
                 gestures_dir="../tmp/integration_frames",
@@ -173,8 +251,14 @@ if __name__ == '__main__':
                 predictions_dir="../tmp/integration_results",
                 debug=False)
 
+    # Recording tests
     v, a = b.start_recording()
     sleep(15)
     v, a = b.stop_recording(v, a)
-    print(v)
-    print(a)
+    # OK
+
+    # Preprocessing tests
+    frames, timings = b.preprocess_video(v)
+    #print(len(frames), frames)
+    #print(len(timings), timings)
+    # OK
