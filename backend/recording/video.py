@@ -35,7 +35,7 @@ class Video:
                 # counter += 1
                 # timer_current = time.time() - timer_start
                 time.sleep(0.16)
-                preview_color = cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB)
+                preview_color = cv2.cvtColor(video_frame, cv2.COLOR_RGB2RGBA)
                 cv2.imshow('video_frame', preview_color)
                 cv2.waitKey(1)
             else:

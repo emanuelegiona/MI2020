@@ -106,6 +106,17 @@ class Audio:
         """
         return self.end - self.start
 
+    def trim(self, n: int) -> None:
+        """
+        Trims the first n seconds from an audio file, then overwrites the file.
+        :param n: Seconds to trim at the start of the file
+        :return: None
+        """
+
+        audio = AudioSegment.from_wav(self.path)
+        audio = audio[n:]
+        audio.export(self.path, format="wav")
+
 
 if __name__ == "__main__":
     a = Audio("../tmp/audio.wav")
