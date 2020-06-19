@@ -7,6 +7,8 @@ import numpy as np
 import imageio
 from skimage.exposure import match_histograms
 from skimage.metrics import structural_similarity
+import glob
+import cv2 as cv
 
 from typing import List, Tuple, Optional
 
@@ -22,7 +24,7 @@ class GestureIdentifier:
                  gesture_time_interval: float = 2.0,
                  black_threshold: float = 0.995,
                  ln_norm: int = 3,
-                 prev_gesture_threshold: float = 0.0003,
+                 prev_gesture_threshold: float = 0.01,
                  debug: bool = False):
         """
         Processes a MediaPipe-produced video to detect gestures in it.
@@ -85,11 +87,11 @@ class GestureIdentifier:
         # Extract gesture only
         # TODO: this is the culprit
         array = np.copy(imageio.core.asarray(frame)) if histogram_matching else imageio.core.asarray(frame)
-        mask_green = (np.any(array == (0, 255, 0), axis=-1))
-        mask_red = (np.any(array == (255, 0, 0), axis=-1))
-        array[np.logical_not(mask_green)] = [0, 0, 0]
-        array[np.logical_not(mask_red)] = [0, 0, 0]
-        array[(np.all(array == (255, 255, 255), axis=-1))] = [0, 0, 0]
+        image = cv.cvtColor(array, cv.COLOR_BGR2HSV)
+        lower = np.array([60, 220, 20])
+        upper = np.array([65, 255, 255])
+        mask = cv.inRange(image, lower, upper)
+        array = cv.bitwise_and(array, array, mask=mask)
 
         return imageio.core.Image(array), frame
 
