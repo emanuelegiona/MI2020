@@ -172,7 +172,7 @@ class Backend:
                                                gesture_time_interval=2,
                                                black_threshold=0.995,
                                                ln_norm=3,
-                                               prev_gesture_threshold=0.0003,
+                                               prev_gesture_threshold=0.01,
                                                debug=self.__debug)
 
         stable_frames = gesture_identifier.process()
@@ -328,26 +328,27 @@ if __name__ == '__main__':
 
     # Recording tests
     v, a = b.start_recording()
-    sleep(15)
+    sleep(100)
     v, a = b.stop_recording(v, a)
     # OK
 
     # Preprocessing tests
     frames, timings = b.preprocess_video(v)
+    print(timings)
     # OK
 
     # Cloud requests tests
-    gestures_op = b.send_video(frame_paths=frames)
-    words_op = b.send_audio(audio_input=a)
+    #gestures_op = b.send_video(frame_paths=frames)
+    #words_op = b.send_audio(audio_input=a)
     # pending
 
     # Cloud response tests
-    g_list = b.process_video_response(operation=gestures_op, gesture_timings=timings)
-    w_list = b.process_audio_response(operation=words_op)
+    #g_list = b.process_video_response(operation=gestures_op, gesture_timings=timings)
+    #w_list = b.process_audio_response(operation=words_op)
     # pending
 
     # Multimodal fusion tests
-    fused = b.fuse(gestures=g_list, words=w_list)
-    formatted = b.apply_format(multimodal_stream=fused)
-    print(formatted)
+    #fused = b.fuse(gestures=g_list, words=w_list)
+    #formatted = b.apply_format(multimodal_stream=fused)
+    #print(formatted)
     # pending
