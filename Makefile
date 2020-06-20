@@ -21,7 +21,7 @@ pip:
 	pip install pydub
 	pip install requests
 	pip install appjar
-	pip install google-cloud-speech google-cloud-automl google-cloud-storage
+	pip install google-cloud-speech google-cloud-automl
 
 mediapipe:
 	@echo "\nInstalling dependencies for Google MediaPipe\n"
