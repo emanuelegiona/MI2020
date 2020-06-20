@@ -30,8 +30,6 @@ class Backend:
                  mp_video_path: str,
                  gestures_dir: str,
                  gesture_prefix: str,
-                 csv_path: str,
-                 predictions_dir: str,
                  debug: bool = False):
         """
         Implements the back end of GesturePad, linking all modules together in the intended flow.
@@ -41,8 +39,6 @@ class Backend:
         :param mp_video_path: Path to the video file to write after Google MediaPipe processing
         :param gestures_dir: Path to the directory wherein to store detected gestures
         :param gesture_prefix: Prefix in naming gesture files
-        :param csv_path: Path to the CSV file to write for batch Google Cloud processing
-        :param predictions_dir: Path to the directory wherein to store Google Cloud predictions (JSONL files)
         :param debug: Whether to print debug information and keep intermediate files for inspection (default: False)
         """
 
@@ -50,10 +46,6 @@ class Backend:
             raise FileNotFoundError("Invalid gesture directory.")
         elif not os.path.isdir(gestures_dir):
             raise NotADirectoryError("The path provided as gestures directory is not a directory.")
-        elif not os.path.exists(predictions_dir):
-            raise FileNotFoundError("Invalid predictions directory.")
-        elif not os.path.isdir(predictions_dir):
-            raise NotADirectoryError("The path provided as predictions directory is not a directory.")
 
         self.__debug = debug
 
@@ -63,11 +55,9 @@ class Backend:
         self.__mp_video_path = mp_video_path
         self.__gestures_dir = gestures_dir
         self.__gesture_prefix = gesture_prefix
-        self.__csv_path = csv_path
-        self.__predictions_dir = predictions_dir
 
         self.__mediapipe = MediaPipeHelper(mediapipe_dir=self.__mediapipe_dir)
-        self.__gesture_client = GestureClient(csv_path=self.__csv_path, prediction_path=self.__predictions_dir)
+        self.__gesture_client = GestureClient()
         self.__speech_client = SpeechClient()
         self.__fuser = GesturePadFuser(sync_tolerance=0.25)
         self.__format = HTMLFormat()
@@ -75,7 +65,6 @@ class Backend:
         # Internal state
         self.__recording = False
         self.__waiting_audio = False
-        self.__waiting_gestures = False
 
     # --- Recording ---
     def start_recording(self,
@@ -187,16 +176,15 @@ class Backend:
 
         return frame_paths, frame_timings
 
-    def send_video(self, frame_paths: List[str]) -> Any:
-        # TODO: not fully implemented, do not test yet
+    def process_video(self, frame_paths: List[str], gesture_timings: List[float]) -> List[GestureOutput]:
         """
-        Sends a batch of images for image classification in an asynchronous fashion.
+        Classifies the given images in a synchronous fashion.
         :param frame_paths: List of paths to stable frame files to classify
-        :return: google.longrunning.Operation object to later poll for response
+        :param gesture_timings: List of timings associated with each Gesture (obtained from preprocess_video)
+        :return: List of GestureOutput objects (Gesture, timing pairs)
         """
 
-        operation = self.__gesture_client.process_images(image_paths=frame_paths)
-        self.__waiting_gestures = True
+        recognized_gestures = self.__gesture_client.process_images(image_paths=frame_paths)
 
         if not self.__debug:
             for path in frame_paths:
@@ -204,9 +192,12 @@ class Backend:
                     os.remove(path)
                 except RuntimeError:
                     pass
-            os.remove(self.__csv_path)
 
-        return operation
+        processed_gestures = []
+        for gesture, timing in zip(recognized_gestures, gesture_timings):
+            processed_gestures.append(GestureOutput(gesture=gesture, timing=timing))
+
+        return processed_gestures
 
     def send_audio(self, audio_input: AudioInput) -> Any:
         """
@@ -225,27 +216,6 @@ class Backend:
                 pass
 
         return operation
-
-    def process_video_response(self, operation: Any, gesture_timings: List[float]) -> List[GestureOutput]:
-        # TODO: not fully implemented, do not test yet
-        """
-        Waits for the recognized Gestures from a previous send_video request.
-        :param operation: google.longrunning.Operation object to wait completion for (obtained from send_video)
-        :param gesture_timings: List of timings associated with each Gesture (obtained from preprocess_video)
-        :return: List of GestureOutput objects (Gesture, timing pairs)
-        """
-
-        if not self.__waiting_gestures:
-            raise RuntimeError("There is no ongoing cloud gesture processing.")
-
-        recognized_gestures = self.__gesture_client.get_gestures(operation)
-        self.__waiting_gestures = False
-
-        processed_gestures = []
-        for gesture, timing in zip(recognized_gestures, gesture_timings):
-            processed_gestures.append(GestureOutput(gesture=gesture, timing=timing))
-
-        return processed_gestures
 
     def process_audio_response(self, operation: Any) -> List[WordOutput]:
         """
@@ -322,33 +292,29 @@ if __name__ == '__main__':
                 mp_video_path="../tmp/integration_video_mp.mp4",
                 gestures_dir="../tmp/integration_frames",
                 gesture_prefix="image",
-                csv_path="../tmp/integration_csv.csv",
-                predictions_dir="../tmp/integration_results",
                 debug=False)
 
     # Recording tests
     v, a = b.start_recording()
-    sleep(100)
+    sleep(45)
     v, a = b.stop_recording(v, a)
     # OK
 
     # Preprocessing tests
     frames, timings = b.preprocess_video(v)
-    print(timings)
     # OK
 
     # Cloud requests tests
-    #gestures_op = b.send_video(frame_paths=frames)
-    #words_op = b.send_audio(audio_input=a)
+    words_op = b.send_audio(audio_input=a)
+    g_list = b.process_video(frame_paths=frames, gesture_timings=timings)
     # pending
 
     # Cloud response tests
-    #g_list = b.process_video_response(operation=gestures_op, gesture_timings=timings)
-    #w_list = b.process_audio_response(operation=words_op)
+    w_list = b.process_audio_response(operation=words_op)
     # pending
 
     # Multimodal fusion tests
-    #fused = b.fuse(gestures=g_list, words=w_list)
-    #formatted = b.apply_format(multimodal_stream=fused)
-    #print(formatted)
+    fused = b.fuse(gestures=g_list, words=w_list)
+    formatted = b.apply_format(multimodal_stream=fused)
+    print(formatted)
     # pending
