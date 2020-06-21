@@ -96,22 +96,20 @@ class GesturePadFuser(MultimodalFuser, ABC):
 
             # Intermediate steps
             if gesture is not None and word is not None:
-                # Current gesture can be added
-                if gesture.timing <= word.timing + self.sync_tolerance:
-                    # Handle gestures that work in pairs in a queue
-                    if gesture.utterance in GESTURE_PAIR:
-                        if len(gesture_queue) > 0 and gesture_queue[-1].utterance == gesture.utterance:
-                            gesture_queue = gesture_queue[:-1]
-                        else:
-                            gesture_queue.append(gesture)
-
-                    multimodal_output.append(gesture)
-                    gesture, gestures = next_output(gestures)
-
                 # Exhaust all the words that are between the current gesture and the next one
-                while word is not None and word.timing < gesture.timing:
+                while word is not None and word.timing + self.sync_tolerance < gesture.timing:
                     multimodal_output.append(word)
                     word, words = next_output(words)
+
+                # Handle gestures that work in pairs in a queue
+                if gesture.utterance in GESTURE_PAIR:
+                    if len(gesture_queue) > 0 and gesture_queue[-1].utterance == gesture.utterance:
+                        gesture_queue = gesture_queue[:-1]
+                    else:
+                        gesture_queue.append(gesture)
+
+                multimodal_output.append(gesture)
+                gesture, gestures = next_output(gestures)
 
             # Exit condition
             if gesture is None and word is None:
