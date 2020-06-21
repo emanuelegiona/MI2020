@@ -13,11 +13,16 @@ from typing import Tuple, Optional, Any
 
 class Video:
 
-    def __init__(self, path: str, fps: float = 6, resolution: Tuple[int, int] = (640, 480)):
+    def __init__(self,
+                 path: str,
+                 fps: float = 6,
+                 resolution: Tuple[int, int] = (640, 480),
+                 root_window: Optional[Any] = None):
         """
         :param path: the path where the video will be stored in.
         :param fps: the frequency (rate) at which consecutive video frames are acquired.
         :param resolution: the resolution at which the video frames are acquired.
+        :param root_window: Tkinter root window (if any)
         """
 
         self.device_index = 0
@@ -31,6 +36,7 @@ class Video:
         self.frame_counts = 1
         self.start_time = time.time()
 
+        self.__root_window = root_window
         self.tk_window = None
         self.tk_frame = None
         self.tk_label = None
@@ -61,21 +67,24 @@ class Video:
         Stops the video recording.
         """
 
-        self.tk_window.destroy()
+        if self.__root_window is None:
+            self.tk_window.quit()
+        else:
+            self.tk_window.destroy()
+
         self.video_out.release()
         self.video_cap.release()
         cv2.destroyAllWindows()
 
-    def start(self, root_window: Optional[Any] = None) -> None:
+    def start(self) -> None:
         """
         Starts the video recording.
-        :param root_window: Tkinter root window (if any)
         """
 
-        self.tk_window = tk.Tk() if root_window is None else tk.Toplevel(root_window)
+        self.tk_window = tk.Tk() if self.__root_window is None else tk.Toplevel(self.__root_window)
         self.tk_window.wm_title(
             "WebCam: {command} to stop recording".format(
-                command="close window" if root_window is None else "press Stop"
+                command="close window" if self.__root_window is None else "press Stop"
             )
         )
         self.tk_window.config(background="#FFFFFF")
@@ -90,7 +99,7 @@ class Video:
         self.start_time = time.time()
 
         self.record()
-        if root_window is None:
+        if self.__root_window is None:
             self.tk_window.mainloop()
 
 

@@ -96,7 +96,7 @@ class GesturePadFuser(MultimodalFuser, ABC):
 
             # Intermediate steps
             if gesture is not None and word is not None:
-                # Current gesture can be added TODO: making it % w.r.t. word length (word.end - word.start)?
+                # Current gesture can be added
                 if gesture.timing <= word.timing + self.sync_tolerance:
                     # Handle gestures that work in pairs in a queue
                     if gesture.utterance in GESTURE_PAIR:

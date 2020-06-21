@@ -61,7 +61,7 @@ class Backend:
         self.__mediapipe = MediaPipeHelper(mediapipe_dir=self.__mediapipe_dir)
         self.__gesture_client = GestureClient()
         self.__speech_client = SpeechClient()
-        self.__fuser = GesturePadFuser(sync_tolerance=0.25)
+        self.__fuser = GesturePadFuser(sync_tolerance=0.15)
         self.__format = HTMLFormat()
 
         # Internal state
@@ -93,8 +93,11 @@ class Backend:
         audio_rec = Audio(path=self.__audio_path)
         audio_rec.rec(max_audio_length)
 
-        video_rec = Video(path=self.__video_path, fps=video_fps, resolution=video_resolution)
-        video_rec.start(root_window=self.__root_window)
+        video_rec = Video(path=self.__video_path,
+                          fps=video_fps,
+                          resolution=video_resolution,
+                          root_window=self.__root_window)
+        video_rec.start()
 
         self.__recording = True
 
@@ -128,12 +131,12 @@ class Backend:
 
         # Read stats from audio file
         a_input = AudioInput(path=self.__audio_path,
-                             length=audio_recorder.get_real_duration() * 1000,
+                             length=audio_recorder.get_real_duration(),
                              bit_rate=16_000)
 
         # Align audio and video files
-        delay = math.floor(v_input.length - a_input.length)
-        audio_recorder.trim(int(delay))
+        delay = math.floor(a_input.length - v_input.length)
+        audio_recorder.trim(int(delay * 1000))
 
         return v_input, a_input
     # --- --- ---
@@ -167,6 +170,9 @@ class Backend:
                                                debug=self.__debug)
 
         stable_frames = gesture_identifier.process()
+        if not self.__debug:
+            os.remove(self.__mp_video_path)
+
         frame_paths = []
         frame_timings = []
         for i, (frame, timing) in enumerate(stable_frames):
@@ -308,10 +314,12 @@ if __name__ == '__main__':
     # Cloud requests tests
     words_op = b.send_audio(audio_input=a)
     g_list = b.process_video(frame_paths=frames, gesture_timings=timings)
+    print([(x.utterance, x.timing) for x in g_list])
     # OK
 
     # Cloud response tests
     w_list = b.process_audio_response(operation=words_op)
+    print([(x.utterance, x.timing, x.params["end_time"]) for x in w_list])
     # OK
 
     # Multimodal fusion tests
