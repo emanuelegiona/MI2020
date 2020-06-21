@@ -75,7 +75,7 @@ class Backend:
                         max_audio_length: int = 5*60
                         ) -> (Video, Audio):
         """
-        Starts recording audio and video in an asynchronous fashion.
+        Starts recording audio and video in a synchronous fashion.
         :param video_fps: FPS to use when recording videos
         :param video_resolution: Resolution to use when recording videos (format: width x height)
         :param max_audio_length: Maximum length when recording audio files
@@ -135,8 +135,8 @@ class Backend:
                              bit_rate=16_000)
 
         # Align audio and video files
-        delay = math.floor(a_input.length - v_input.length)
-        audio_recorder.trim(int(delay * 1000))
+        delay = max(0, math.floor(a_input.length * 1000 - v_input.length * 1000 - 1250))
+        audio_recorder.trim(int(delay))
 
         return v_input, a_input
     # --- --- ---
@@ -166,8 +166,7 @@ class Backend:
                                                gesture_time_interval=2,
                                                black_threshold=0.995,
                                                ln_norm=3,
-                                               prev_gesture_threshold=0.01,
-                                               debug=self.__debug)
+                                               prev_gesture_threshold=0.01)
 
         stable_frames = gesture_identifier.process()
         if not self.__debug:
@@ -273,21 +272,23 @@ class Backend:
                         gesture_queue = gesture_queue[:-1]
 
                         if utterance != Gesture.CAPS_LOCK:
-                            processed_stream.append(self.__format(utterance, close=True))
+                            processed_stream.append(self.__format.apply(utterance, close=True))
                         else:
                             caps_lock = False
                     else:
                         gesture_queue.append(token)
                         if utterance != Gesture.CAPS_LOCK:
-                            processed_stream.append(self.__format(utterance, close=False))
+                            processed_stream.append(self.__format.apply(utterance, close=False))
                         else:
                             caps_lock = True
+                else:
+                    processed_stream.append(self.__format.apply(utterance, close=False))
 
             # Words
             else:
                 processed_stream.append(str.upper(utterance) if caps_lock else utterance)
 
-        return processed_stream
+        return [*filter(lambda x: x is not None, processed_stream)]
     # --- --- ---
 
 
@@ -300,7 +301,7 @@ if __name__ == '__main__':
                 mp_video_path="../tmp/integration_video_mp.mp4",
                 gestures_dir="../tmp/integration_frames",
                 gesture_prefix="image",
-                debug=False)
+                debug=True)
 
     # Recording tests
     v, a = b.start_recording()
@@ -324,6 +325,8 @@ if __name__ == '__main__':
 
     # Multimodal fusion tests
     fused = b.fuse(gestures=g_list, words=w_list)
+    print([*map(lambda x: x.utterance, fused)])
+    print("---")
     formatted = b.apply_format(multimodal_stream=fused)
     print(formatted)
     # OK
