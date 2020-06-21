@@ -17,8 +17,7 @@ from backend.fusion.multimodal_types import ModalityOutput, AudioInput, WordOutp
 from backend.fusion.multimodal_fuser import GesturePadFuser
 from backend.export.formats import HTMLFormat
 
-from typing import Tuple, List, Any
-from time import sleep
+from typing import Tuple, List, Any, Optional
 
 
 class Backend:
@@ -30,6 +29,7 @@ class Backend:
                  mp_video_path: str,
                  gestures_dir: str,
                  gesture_prefix: str,
+                 root_window: Optional[Any] = None,
                  debug: bool = False):
         """
         Implements the back end of GesturePad, linking all modules together in the intended flow.
@@ -39,6 +39,7 @@ class Backend:
         :param mp_video_path: Path to the video file to write after Google MediaPipe processing
         :param gestures_dir: Path to the directory wherein to store detected gestures
         :param gesture_prefix: Prefix in naming gesture files
+        :param root_window: Tkinter root window (if any)
         :param debug: Whether to print debug information and keep intermediate files for inspection (default: False)
         """
 
@@ -48,6 +49,7 @@ class Backend:
             raise NotADirectoryError("The path provided as gestures directory is not a directory.")
 
         self.__debug = debug
+        self.__root_window = root_window
 
         self.__mediapipe_dir = mediapipe_dir
         self.__audio_path = audio_path
@@ -88,11 +90,11 @@ class Backend:
         except FileNotFoundError:
             pass
 
-        video_rec = Video(path=self.__video_path, fps=video_fps, resolution=video_resolution)
-        video_rec.start()
-
         audio_rec = Audio(path=self.__audio_path)
         audio_rec.rec(max_audio_length)
+
+        video_rec = Video(path=self.__video_path, fps=video_fps, resolution=video_resolution)
+        video_rec.start(root_window=self.__root_window)
 
         self.__recording = True
 
@@ -296,7 +298,6 @@ if __name__ == '__main__':
 
     # Recording tests
     v, a = b.start_recording()
-    sleep(45)
     v, a = b.stop_recording(v, a)
     # OK
 
@@ -307,14 +308,14 @@ if __name__ == '__main__':
     # Cloud requests tests
     words_op = b.send_audio(audio_input=a)
     g_list = b.process_video(frame_paths=frames, gesture_timings=timings)
-    # pending
+    # OK
 
     # Cloud response tests
     w_list = b.process_audio_response(operation=words_op)
-    # pending
+    # OK
 
     # Multimodal fusion tests
     fused = b.fuse(gestures=g_list, words=w_list)
     formatted = b.apply_format(multimodal_stream=fused)
     print(formatted)
-    # pending
+    # OK

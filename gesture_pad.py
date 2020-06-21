@@ -7,6 +7,8 @@ from utils.config_helper import read_config
 class GesturePad:
 
     def __init__(self, width=600, height=400):
+        self.__root = Tk()
+
         c, _ = read_config()
         backend = Backend(mediapipe_dir=c["mediapipe_dir"],
                           audio_path="tmp/integration_audio.wav",
@@ -14,10 +16,10 @@ class GesturePad:
                           mp_video_path="tmp/integration_video_mp.mp4",
                           gestures_dir="tmp/integration_frames",
                           gesture_prefix="image",
+                          root_window=self.__root,
                           debug=False)
         self.__backend = backend
 
-        self.__root = Tk()
         self.__file = None
         # default window width and height
         self.__thisTextArea = Text(self.__root)
@@ -166,7 +168,6 @@ class GesturePad:
                 w_list = self.__backend.process_audio_response(operation=words_op)
                 fused = self.__backend.fuse(gestures=g_list, words=w_list)
                 formatted = self.__backend.apply_format(multimodal_stream=fused)
-                print(formatted)
                 self.__thisTextArea.insert(CURRENT, formatted)
             except Exception as e:
                 messagebox.showerror(title="Error", message="Error during audio/video processing")
