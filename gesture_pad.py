@@ -1,10 +1,5 @@
-import tkinter
-import os
-from tkinter import *
-# To get the space above for message
-from tkinter.messagebox import *
-# To get the dialog box to open when required
 from tkinter.filedialog import *
+from tkinter import messagebox
 from backend.gesture_pad_be import Backend
 from utils.config_helper import read_config
 
@@ -19,8 +14,6 @@ class GesturePad:
                           mp_video_path="tmp/integration_video_mp.mp4",
                           gestures_dir="tmp/integration_frames",
                           gesture_prefix="image",
-                          csv_path="tmp/integration_csv.csv",
-                          predictions_dir="tmp/integration_results",
                           debug=False)
         self.__backend = backend
 
@@ -32,7 +25,9 @@ class GesturePad:
         self.__thisMenuBar = Menu(self.__root)
         self.__thisFileMenu = Menu(self.__thisMenuBar, tearoff=0)
         self.__thisEditMenu = Menu(self.__thisMenuBar, tearoff=0)
-
+        self.__recording = False
+        self.__audio = None
+        self.__video = None
         try:
             self.__root.wm_iconbitmap("Notepad.ico")
         except:
@@ -154,7 +149,29 @@ class GesturePad:
         self.__thisTextArea.event_generate("<<Paste>>")
 
     def __rec(self):
-        self.__thisTextArea.insert(CURRENT, " Acquisition result ")
+        """
+        Starts the audio/video processing of the user input.
+        """
+
+        if self.__recording is False:
+            self.__video, self.__audio = self.__backend.start_recording()
+            self.__recording = True
+            self.__thisMenuBar.entryconfigure(3, label="Stop")
+        else:
+            try:
+                v, a = self.__backend.stop_recording(self.__video, self.__audio)
+                frames, timings = self.__backend.preprocess_video(v)
+                words_op = self.__backend.send_audio(audio_input=a)
+                g_list = self.__backend.process_video(frame_paths=frames, gesture_timings=timings)
+                w_list = self.__backend.process_audio_response(operation=words_op)
+                fused = self.__backend.fuse(gestures=g_list, words=w_list)
+                formatted = self.__backend.apply_format(multimodal_stream=fused)
+                print(formatted)
+                self.__thisTextArea.insert(CURRENT, formatted)
+            except Exception as e:
+                messagebox.showerror(title="Error", message="Error during audio/video processing")
+            self.__recording = False
+            self.__thisMenuBar.entryconfigure(3, label="Rec")
 
     def run(self):
         # Run main application

@@ -34,7 +34,7 @@ class Video:
         """
         Writes on file the video frame by frame showing to the user a recording window during the process.
         """
-
+        self.open = True
         while self.open:
             ret, video_frame = self.video_cap.read()
             if ret:
@@ -42,6 +42,8 @@ class Video:
                 self.frame_counts += 1
                 time.sleep(0.16)
                 preview_color = cv2.cvtColor(video_frame, cv2.COLOR_RGB2RGBA)
+                cv2.namedWindow("video_frame", cv2.WINDOW_NORMAL)
+                cv2.resizeWindow('video_frame', 300, 200)
                 cv2.imshow('video_frame', preview_color)
                 cv2.waitKey(1)
             else:
@@ -58,7 +60,6 @@ class Video:
             self.video_out.release()
             self.video_cap.release()
             cv2.destroyAllWindows()
-
         else:
             pass
 
