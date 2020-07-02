@@ -133,7 +133,7 @@ class GesturePad:
                 file.close()
 
                 # Change the window title
-                self.__root.title(os.path.basename(self.__file) + " - Notepad")
+                self.__root.title(os.path.basename(self.__file) + " - GesturePad")
 
 
         else:
@@ -170,7 +170,7 @@ class GesturePad:
                 formatted = self.__backend.apply_format(multimodal_stream=fused)
                 self.__thisTextArea.insert(CURRENT, formatted)
             except Exception as e:
-                messagebox.showerror(title="Error", message="Error during audio/video processing")
+                messagebox.showerror(title="Error", message="Error during audio/video processing: {e}".format(e=str(e)))
             self.__recording = False
             self.__thisMenuBar.entryconfigure(3, label="Rec")
 

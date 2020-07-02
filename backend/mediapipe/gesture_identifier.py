@@ -7,7 +7,6 @@ import numpy as np
 import imageio
 from skimage.exposure import match_histograms
 from skimage.metrics import structural_similarity
-import glob
 import cv2 as cv
 
 from typing import List, Tuple, Optional
@@ -85,7 +84,6 @@ class GestureIdentifier:
             frame = match_histograms(frame, prev_frame, multichannel=True)
 
         # Extract gesture only
-        # TODO: this is the culprit
         array = np.copy(imageio.core.asarray(frame)) if histogram_matching else imageio.core.asarray(frame)
         image = cv.cvtColor(array, cv.COLOR_BGR2HSV)
         lower = np.array([60, 220, 20])
@@ -309,9 +307,12 @@ if __name__ == '__main__':
     else:
         identifier = GestureIdentifier(mediapipe_vid,
                                        stable_frames=5,
-                                       apply_histogram_matching=histogram_preprocess,
+                                       instability_threshold=2.5,
                                        gesture_frames_interval=3,
-                                       debug=debug)
+                                       gesture_time_interval=2,
+                                       black_threshold=0.995,
+                                       ln_norm=3,
+                                       prev_gesture_threshold=0.01)
     stable_gestures = identifier.process()
     print("Stable gestures found: {n}".format(n=len(stable_gestures)))
     for g in stable_gestures:

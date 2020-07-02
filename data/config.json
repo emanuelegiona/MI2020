@@ -1,6 +1,6 @@
-{"mediapipe_dir": "/home/angelo/PycharmProjects/mi/mediapipe",
+{"mediapipe_dir": "/home/emanuele/source/mi/mediapipe",
   "project_id": "mi2020",
-  "credentials": "/home/angelo/PycharmProjects/mi/MI2020/data/credentials.json",
+  "credentials": "/home/emanuele/source/mi/MI2020/data/credentials.json",
   "location": "us-central1",
   "model_id": "ICN2993558945085259776"
 }
