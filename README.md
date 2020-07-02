@@ -13,6 +13,8 @@ cloud-deployed [Google Cloud Vision AutoML][automl] model.
 
 Complete details can be found in the [PDF report][report].
 
+#### [DEMO VIDEO](https://www.youtube.com/watch?v=vxee5DqA4Jo)
+
 ## Instructions
 GesturePad has been developed on Ubuntu 18.04 (LTS) with Python 3.6+.
 See further installation requirements for [Google MediaPipe][mediapipe].
